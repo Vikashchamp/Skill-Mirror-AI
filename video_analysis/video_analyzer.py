@@ -6,7 +6,7 @@ import math
 
 class VideoAnalyzer:
 
-    def __init__(self, model_path="models/face_landmarker.task"):
+    def __init__(self, model_path="video_analysis/models/face_landmarker.task"):
 
         # ==================================================
         # MediaPipe Face Landmarker
