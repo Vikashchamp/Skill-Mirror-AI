@@ -9,12 +9,14 @@ function Interview() {
   const streamRef = useRef(null)
   const mediaRecorderRef = useRef(null)
   const recordedChunksRef = useRef([])
+  const [recordedBlob, setRecordedBlob] = useState(null)
 
   const [time, setTime] = useState(0)
   const [isRecording, setIsRecording] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [cameraReady, setCameraReady] = useState(false)
   const [recordingReady, setRecordingReady] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
 
   const interviewType =
     location.state?.interviewType || "Behavioral"
@@ -125,28 +127,54 @@ function Interview() {
       }
     }
 
-    recorder.onstop = () => {
-      const blob = new Blob(
-        recordedChunksRef.current,
-        {
-          type: recorder.mimeType || "video/webm",
-        }
-      )
+    recorder.onstop = async () => {
+  const blob = new Blob(recordedChunksRef.current, {
+    type: recorder.mimeType || "video/webm",
+  })
 
-      console.log("Recording completed")
-      console.log("Recording size:", blob.size, "bytes")
-      console.log("Recording type:", blob.type)
+  console.log("Recording complete:", blob)
+  console.log("Blob size:", blob.size)
 
-      // Store a temporary URL so we can use the recording later.
-      const recordingUrl = URL.createObjectURL(blob)
+  // Save locally for frontend state if needed
+  setRecordedBlob(blob)
 
-      console.log("Recording URL:", recordingUrl)
+  // Send recording to FastAPI
+  const formData = new FormData()
+  formData.append("file", blob, "interview.webm")
 
-      setRecordingReady(true)
+  try {
+    setIsProcessing(true)
 
-      // Save the blob for the next stage.
-      window.skillMirrorRecording = blob
+    const response = await fetch(
+      "http://127.0.0.1:8000/analyze-session",
+      {
+        method: "POST",
+        body: formData,
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error(`Backend error: ${response.status}`)
     }
+
+    const result = await response.json()
+
+    console.log("Backend analysis result:", result)
+
+    // Store result so Results.jsx can use it
+    sessionStorage.setItem(
+      "interviewResults",
+      JSON.stringify(result)
+    )
+
+    // Move to processing/results page
+    navigate("/processing")
+  } catch (error) {
+    console.error("Failed to upload recording:", error)
+    alert("Failed to analyze interview. Please try again.")
+    setIsProcessing(false)
+  }
+}
 
     recorder.start(1000)
 
@@ -223,7 +251,6 @@ function Interview() {
     setIsRecording(false)
     setIsPaused(false)
 
-    navigate("/results")
   }
 
   // --------------------------------------------------

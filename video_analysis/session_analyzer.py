@@ -1,8 +1,10 @@
 import cv2
 import time
 
-from video_analyzer import VideoAnalyzer
-
+try:
+    from .video_analyzer import VideoAnalyzer
+except ImportError:
+    from video_analyzer import VideoAnalyzer
 
 # ============================================================
 # SESSION ANALYZER
