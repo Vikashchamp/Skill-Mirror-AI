@@ -1,6 +1,13 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    Float,
+    ForeignKey
+)
 
 from backend.database import Base
 
@@ -10,12 +17,7 @@ from backend.database import Base
 # ============================================================
 
 class User(Base):
-
     __tablename__ = "users"
-
-    # --------------------------------------------------------
-    # PRIMARY KEY
-    # --------------------------------------------------------
 
     id = Column(
         Integer,
@@ -23,18 +25,10 @@ class User(Base):
         index=True
     )
 
-    # --------------------------------------------------------
-    # USER NAME
-    # --------------------------------------------------------
-
     name = Column(
         String,
         nullable=False
     )
-
-    # --------------------------------------------------------
-    # EMAIL
-    # --------------------------------------------------------
 
     email = Column(
         String,
@@ -43,20 +37,125 @@ class User(Base):
         nullable=False
     )
 
-    # --------------------------------------------------------
-    # PASSWORD HASH
-    # --------------------------------------------------------
-
     password_hash = Column(
         String,
         nullable=False
     )
 
-    # --------------------------------------------------------
-    # ACCOUNT CREATION TIME
-    # --------------------------------------------------------
-
     created_at = Column(
         DateTime,
         default=datetime.utcnow
+    )
+
+
+# ============================================================
+# INTERVIEW SESSION MODEL
+# ============================================================
+
+class InterviewSession(Base):
+    __tablename__ = "interview_sessions"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True
+    )
+
+    # -------------------------
+    # Speech metrics
+    # -------------------------
+
+    transcript = Column(
+        String,
+        nullable=True
+    )
+
+    word_count = Column(
+        Integer,
+        nullable=True
+    )
+
+    words_per_minute = Column(
+        Float,
+        nullable=True
+    )
+
+    total_fillers = Column(
+        Integer,
+        nullable=True
+    )
+
+    pause_count = Column(
+        Integer,
+        nullable=True
+    )
+
+    average_pause = Column(
+        Float,
+        nullable=True
+    )
+
+    longest_pause = Column(
+        Float,
+        nullable=True
+    )
+
+    # -------------------------
+    # Voice / Prosody
+    # -------------------------
+
+    average_pitch = Column(
+        Float,
+        nullable=True
+    )
+
+    pitch_variation = Column(
+        Float,
+        nullable=True
+    )
+
+    average_energy = Column(
+        Float,
+        nullable=True
+    )
+
+    energy_variation = Column(
+        Float,
+        nullable=True
+    )
+
+    # -------------------------
+    # Video / Engagement
+    # -------------------------
+
+    engagement_score = Column(
+        Float,
+        nullable=True
+    )
+
+    # -------------------------
+    # Session timing
+    # -------------------------
+
+    audio_duration = Column(
+        Float,
+        nullable=True
+    )
+
+    speaking_duration = Column(
+        Float,
+        nullable=True
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        index=True
     )

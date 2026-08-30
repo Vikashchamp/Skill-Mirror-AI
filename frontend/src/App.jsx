@@ -5,12 +5,16 @@ import Setup from "./pages/Setup"
 import Interview from "./pages/Interview"
 import Processing from "./pages/Processing"
 import Results from "./pages/Results"
+import Login from "./pages/Login"
+import Register from "./pages/Register"
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/setup" element={<Setup />} />
         <Route path="/interview" element={<Interview />} />
         <Route path="/processing" element={<Processing />} />

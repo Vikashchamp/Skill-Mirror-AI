@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from backend.auth import hash_password, verify_password
 from backend.database import engine, get_db
-from backend.models import Base, User
+from backend.models import Base, User, InterviewSession
 
 from video_analysis.video_analyzer import VideoAnalyzer
 from video_analysis.session_analyzer import SessionAnalyzer
@@ -213,7 +213,9 @@ def analyze_answer(request: AnalyzeRequest):
 
 @app.post("/analyze-session")
 async def analyze_session(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    user_id: int = 1,
+    db: Session = Depends(get_db)
 ):
     """
     Analyze a recorded interview video.

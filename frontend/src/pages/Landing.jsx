@@ -3,6 +3,10 @@ import { useNavigate } from "react-router-dom"
 function Landing() {
   const navigate = useNavigate()
 
+  const user = JSON.parse(
+    sessionStorage.getItem("skillmirrorUser") || "null"
+  )
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#17131F]">
 
@@ -40,6 +44,7 @@ function Landing() {
       {/* Navigation */}
       <nav className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-10">
 
+        {/* Logo */}
         <div className="flex items-center gap-3">
 
           <div
@@ -66,14 +71,95 @@ function Landing() {
 
         </div>
 
+        {/* Navigation Links */}
         <div className="hidden items-center gap-8 text-sm text-[#B9B0C2] md:flex">
-          <a href="#how-it-works" className="transition hover:text-[#F5F1F8]">
+          <a
+            href="#how-it-works"
+            className="transition hover:text-[#F5F1F8]"
+          >
             How it works
           </a>
 
-          <a href="#features" className="transition hover:text-[#F5F1F8]">
+          <a
+            href="#features"
+            className="transition hover:text-[#F5F1F8]"
+          >
             Features
           </a>
+        </div>
+
+        {/* Authentication */}
+        <div className="flex items-center gap-3">
+
+          {user ? (
+            <>
+              <span className="hidden text-sm text-[#B9B0C2] sm:block">
+                Hi, {user.name}
+              </span>
+
+              <button
+                onClick={() => {
+                  sessionStorage.removeItem("skillmirrorUser")
+                  navigate("/")
+                  window.location.reload()
+                }}
+                className="
+                  rounded-xl
+                  border
+                  border-[#3A3046]
+                  bg-[#211A2B]
+                  px-4
+                  py-2.5
+                  text-sm
+                  font-medium
+                  text-[#F5F1F8]
+                  transition
+                  hover:bg-[#30273D]
+                "
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => navigate("/login")}
+                className="
+                  rounded-xl
+                  border
+                  border-[#3A3046]
+                  bg-[#211A2B]
+                  px-4
+                  py-2.5
+                  text-sm
+                  font-medium
+                  text-[#F5F1F8]
+                  transition
+                  hover:bg-[#30273D]
+                "
+              >
+                Login
+              </button>
+
+              <button
+                onClick={() => navigate("/register")}
+                className="
+                  rounded-xl
+                  bg-[#B99AE8]
+                  px-4
+                  py-2.5
+                  text-sm
+                  font-semibold
+                  text-[#17131F]
+                  transition
+                  hover:bg-[#C8ADEF]
+                "
+              >
+                Register
+              </button>
+            </>
+          )}
+
         </div>
 
       </nav>
@@ -104,6 +190,7 @@ function Landing() {
               "
             >
               <span className="h-2 w-2 rounded-full bg-[#91B7A1] shadow-[0_0_10px_rgba(145,183,161,0.6)]" />
+
               AI-powered interview practice
             </div>
 
@@ -125,14 +212,22 @@ function Landing() {
 
             <div className="mt-9 flex flex-col gap-4 sm:flex-row">
 
+              {/* Start Interview */}
               <button
-                onClick={() => navigate("/setup")}
+                onClick={() => {
+                  if (user) {
+                    navigate("/setup")
+                  } else {
+                    navigate("/login")
+                  }
+                }}
                 className="primary-button px-7 py-3.5"
               >
                 Start Interview
                 <span className="ml-2">→</span>
               </button>
 
+              {/* See how it works */}
               <button
                 onClick={() =>
                   document
@@ -285,21 +380,30 @@ function Landing() {
               <div className="mt-4 grid grid-cols-3 gap-3">
 
                 <div className="rounded-xl border border-[#3A3046] bg-[#30273D] p-3">
-                  <p className="text-xs text-[#B9B0C2]">Confidence</p>
+                  <p className="text-xs text-[#B9B0C2]">
+                    Confidence
+                  </p>
+
                   <p className="mt-1 text-lg font-bold text-[#D5C2F4]">
                     86%
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-[#3A3046] bg-[#30273D] p-3">
-                  <p className="text-xs text-[#B9B0C2]">Clarity</p>
+                  <p className="text-xs text-[#B9B0C2]">
+                    Clarity
+                  </p>
+
                   <p className="mt-1 text-lg font-bold text-[#91B7A1]">
                     91%
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-[#3A3046] bg-[#30273D] p-3">
-                  <p className="text-xs text-[#B9B0C2]">Pace</p>
+                  <p className="text-xs text-[#B9B0C2]">
+                    Pace
+                  </p>
+
                   <p className="mt-1 text-lg font-bold text-[#C98FA8]">
                     78%
                   </p>
@@ -322,6 +426,7 @@ function Landing() {
       >
 
         <div className="max-w-2xl">
+
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#B99AE8]">
             How it works
           </p>
@@ -334,6 +439,7 @@ function Landing() {
             Practice naturally. SkillMirror observes the signals that
             matter and turns them into actionable feedback.
           </p>
+
         </div>
 
         <div className="mt-12 grid gap-5 md:grid-cols-3">
@@ -355,10 +461,12 @@ function Landing() {
               text: "Get meaningful insights that help you perform better next time.",
             },
           ].map((item) => (
+
             <div
               key={item.number}
               className="glass-card rounded-2xl p-7"
             >
+
               <span className="text-sm font-bold text-[#B99AE8]">
                 {item.number}
               </span>
@@ -370,7 +478,9 @@ function Landing() {
               <p className="mt-3 leading-7 text-[#B9B0C2]">
                 {item.text}
               </p>
+
             </div>
+
           ))}
 
         </div>
