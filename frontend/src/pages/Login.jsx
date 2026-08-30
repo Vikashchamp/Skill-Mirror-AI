@@ -1,13 +1,16 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 
 function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+
+  const from = location.state?.from || "/"
 
   const handleLogin = async (event) => {
     event.preventDefault()
@@ -43,9 +46,10 @@ function Login() {
         })
       )
 
-      navigate("/")
+      navigate(from, { replace: true })
     } catch (error) {
       console.error("Login error:", error)
+
       setError(
         "Unable to connect to the server. Make sure the backend is running."
       )
@@ -124,6 +128,7 @@ function Login() {
 
           <p className="text-center text-gray-400 text-sm mt-6">
             Don't have an account?{" "}
+
             <button
               type="button"
               onClick={() => navigate("/register")}
@@ -132,6 +137,14 @@ function Login() {
               Create one
             </button>
           </p>
+
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="w-full mt-4 text-sm text-gray-500 hover:text-gray-300 transition"
+          >
+            ← Back to Dashboard
+          </button>
 
         </div>
 
