@@ -1,0 +1,348 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+/* =========================================================
+   SKILLMIRROR DESIGN SYSTEM
+   ========================================================= */
+
+:root {
+  /* Backgrounds */
+  --bg-main: #17131F;
+  --bg-secondary: #211A2B;
+  --bg-card: #282033;
+  --bg-elevated: #30273D;
+
+  /* Text */
+  --text-primary: #F5F1F8;
+  --text-secondary: #B9B0C2;
+
+  /* Accents */
+  --accent-primary: #B99AE8;
+  --accent-bright: #D5C2F4;
+  --accent-floral: #C98FA8;
+
+  /* Status */
+  --success: #91B7A1;
+  --warning: #D9A38F;
+
+  /* Borders */
+  --border: #3A3046;
+
+  /* Effects */
+  --accent-glow: rgba(185, 154, 232, 0.20);
+  --accent-glow-strong: rgba(185, 154, 232, 0.35);
+  --rose-glow: rgba(201, 143, 168, 0.16);
+}
+
+/* =========================================================
+   GLOBAL
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+
+  background: var(--bg-main);
+  color: var(--text-primary);
+
+  font-family: "DM Sans", sans-serif;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Manrope", sans-serif;
+  letter-spacing: -0.025em;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+/* =========================================================
+   SELECTION
+   ========================================================= */
+
+::selection {
+  background: var(--accent-primary);
+  color: var(--bg-main);
+}
+
+/* =========================================================
+   CUSTOM SCROLLBAR
+   ========================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+}
+
+/* =========================================================
+   ANIMATIONS
+   ========================================================= */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(185, 154, 232, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 28px var(--accent-glow);
+  }
+}
+
+@keyframes softGlow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* =========================================================
+   REUSABLE ANIMATION CLASSES
+   ========================================================= */
+
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out both;
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.7s ease-out both;
+}
+
+.animate-fade-down {
+  animation: fadeDown 0.6s ease-out both;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.5s ease-out both;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+.animate-soft-glow {
+  animation: softGlow 4s ease-in-out infinite;
+}
+
+/* =========================================================
+   GLASS CARD
+   ========================================================= */
+
+.glass-card {
+  background: rgba(40, 32, 51, 0.72);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(245, 241, 248, 0.025);
+
+  transition:
+    transform 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(185, 154, 232, 0.35);
+
+  box-shadow:
+    0 22px 60px rgba(0, 0, 0, 0.24),
+    0 0 30px rgba(185, 154, 232, 0.06);
+}
+
+/* =========================================================
+   GRADIENT TEXT
+   ========================================================= */
+
+.gradient-text {
+  background: linear-gradient(
+    120deg,
+    var(--accent-bright),
+    var(--accent-primary),
+    var(--accent-floral)
+  );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* =========================================================
+   BUTTON
+   ========================================================= */
+
+.primary-button {
+  background: var(--accent-primary);
+  color: var(--bg-main);
+
+  border: 1px solid transparent;
+  border-radius: 12px;
+
+  font-weight: 700;
+
+  transition:
+    transform 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.primary-button:hover {
+  background: var(--accent-bright);
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 10px 30px var(--accent-glow-strong);
+}
+
+.primary-button:active {
+  transform: translateY(0);
+}
+
+/* =========================================================
+   SECONDARY BUTTON
+   ========================================================= */
+
+.secondary-button {
+  background: rgba(48, 39, 61, 0.7);
+  color: var(--text-primary);
+
+  border: 1px solid var(--border);
+  border-radius: 12px;
+
+  transition:
+    transform 0.25s ease,
+    border-color 0.25s ease,
+    background 0.25s ease;
+}
+
+.secondary-button:hover {
+  background: var(--bg-elevated);
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+}
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
