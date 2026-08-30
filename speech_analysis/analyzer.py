@@ -47,7 +47,7 @@ def analyze_speech(audio_file="speech.wav"):
     print("\n🧠 Loading speech recognition model...")
 
     model = WhisperModel(
-        "base",
+        "small",
         device="cpu",
         compute_type="int8"
     )
@@ -59,9 +59,13 @@ def analyze_speech(audio_file="speech.wav"):
     print("🎙️ Transcribing audio...")
 
     segments, info = model.transcribe(
-        audio_file,
-        beam_size=5
-    )
+    audio_file,
+    language="en",
+    beam_size=5,
+    temperature=0,
+    vad_filter=True,
+    condition_on_previous_text=False
+)
 
     segments = list(segments)
 

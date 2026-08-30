@@ -3,13 +3,7 @@ from faster_whisper import WhisperModel
 
 def transcribe_audio(audio_file):
     """
-    Convert an audio file into text using Whisper.
-
-    Args:
-        audio_file: Path to the WAV/audio file.
-
-    Returns:
-        The complete transcript as a string.
+    Convert an audio file into English text using Faster-Whisper.
     """
 
     print("\n📝 Loading speech recognition model...")
@@ -24,16 +18,33 @@ def transcribe_audio(audio_file):
 
     segments, info = model.transcribe(
         audio_file,
-        beam_size=5
+
+        # Force English interview transcription
+        language="en",
+
+        # Better decoding
+        beam_size=5,
+        temperature=0,
+
+        # Ignore silent/noisy portions
+        vad_filter=True,
+
+        # Reduce repetitive hallucinations
+        condition_on_previous_text=False
     )
 
     transcript = " ".join(
         segment.text.strip()
         for segment in segments
+        if segment.text.strip()
     )
 
+    transcript = transcript.strip()
+
     print("\n✅ Transcription completed.")
-    print("\nTranscript:")
+
+    print("\nDetected language:", info.language)
+    print("Transcript:")
     print(transcript)
 
     return transcript
