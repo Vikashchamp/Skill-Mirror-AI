@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 
 import Landing from "./pages/Landing"
+import History from "./pages/History"
 import Setup from "./pages/Setup"
 import Interview from "./pages/Interview"
 import Processing from "./pages/Processing"
@@ -12,13 +13,23 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+
+        {/* Main Dashboard */}
         <Route path="/" element={<Landing />} />
+
+        {/* Authentication */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        {/* Interview Flow */}
         <Route path="/setup" element={<Setup />} />
         <Route path="/interview" element={<Interview />} />
         <Route path="/processing" element={<Processing />} />
         <Route path="/results" element={<Results />} />
+
+        {/* Interview History */}
+        <Route path="/history" element={<History />} />
+
       </Routes>
     </BrowserRouter>
   )
