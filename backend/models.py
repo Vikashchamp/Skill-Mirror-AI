@@ -1,11 +1,21 @@
-from sqlalchemy import Column, Integer, String, DateTime
 from datetime import datetime
 
-from database import Base
+from sqlalchemy import Column, DateTime, Integer, String
 
+from backend.database import Base
+
+
+# ============================================================
+# USER MODEL
+# ============================================================
 
 class User(Base):
+
     __tablename__ = "users"
+
+    # --------------------------------------------------------
+    # PRIMARY KEY
+    # --------------------------------------------------------
 
     id = Column(
         Integer,
@@ -13,10 +23,18 @@ class User(Base):
         index=True
     )
 
+    # --------------------------------------------------------
+    # USER NAME
+    # --------------------------------------------------------
+
     name = Column(
         String,
         nullable=False
     )
+
+    # --------------------------------------------------------
+    # EMAIL
+    # --------------------------------------------------------
 
     email = Column(
         String,
@@ -25,10 +43,18 @@ class User(Base):
         nullable=False
     )
 
+    # --------------------------------------------------------
+    # PASSWORD HASH
+    # --------------------------------------------------------
+
     password_hash = Column(
         String,
         nullable=False
     )
+
+    # --------------------------------------------------------
+    # ACCOUNT CREATION TIME
+    # --------------------------------------------------------
 
     created_at = Column(
         DateTime,
