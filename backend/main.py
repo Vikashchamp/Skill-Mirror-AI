@@ -7,6 +7,7 @@ import cv2
 from fastapi import (
     Depends,
     FastAPI,
+    HTTPException,
     File,
     UploadFile,
 )
@@ -725,6 +726,7 @@ async def analyze_session(
             print("\n")
 
             ai_feedback = {
+
                 "overall_assessment": (
                     "AI coaching is temporarily unavailable. "
                     "Your interview metrics were successfully "
@@ -830,3 +832,212 @@ async def analyze_session(
         ):
 
             os.remove(audio_path)
+
+
+# ============================================================
+# AI INSIGHTS FOR PREVIOUS INTERVIEW
+# ============================================================
+
+@app.get("/ai-insights/{interview_id}")
+def get_ai_insights(
+    interview_id: int,
+    db: Session = Depends(get_db),
+):
+
+    try:
+
+        # --------------------------------------------------------
+        # Find the interview
+        # --------------------------------------------------------
+
+        # IMPORTANT:
+        # The actual database model is InterviewSession.
+        # There is no model named Interview.
+
+        interview = (
+            db.query(InterviewSession)
+            .filter(
+                InterviewSession.id == interview_id
+            )
+            .first()
+        )
+
+        if not interview:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Interview not found",
+            )
+
+        # --------------------------------------------------------
+        # Prepare interview data for Reka
+        # --------------------------------------------------------
+
+        interview_data = {
+
+            "interview_id": interview.id,
+
+            "video_analysis": {
+
+                "face_detection_percentage":
+                    getattr(
+                        interview,
+                        "face_detection_percentage",
+                        0,
+                    ) or 0,
+
+                "eye_open_percentage":
+                    getattr(
+                        interview,
+                        "eye_open_percentage",
+                        0,
+                    ) or 0,
+
+                "forward_looking_percentage":
+                    getattr(
+                        interview,
+                        "forward_looking_percentage",
+                        0,
+                    ) or 0,
+
+                "average_engagement":
+                    getattr(
+                        interview,
+                        "engagement_score",
+                        0,
+                    ) or 0,
+            },
+
+            "speech_analysis": {
+
+                "transcript":
+                    getattr(
+                        interview,
+                        "transcript",
+                        "",
+                    ) or "",
+
+                "word_count":
+                    getattr(
+                        interview,
+                        "word_count",
+                        0,
+                    ) or 0,
+
+                "audio_duration":
+                    getattr(
+                        interview,
+                        "audio_duration",
+                        0,
+                    ) or 0,
+
+                "speaking_duration":
+                    getattr(
+                        interview,
+                        "speaking_duration",
+                        0,
+                    ) or 0,
+
+                "words_per_minute":
+                    getattr(
+                        interview,
+                        "words_per_minute",
+                        0,
+                    ) or 0,
+
+                "total_fillers":
+                    getattr(
+                        interview,
+                        "total_fillers",
+                        0,
+                    ) or 0,
+
+                "pause_count":
+                    getattr(
+                        interview,
+                        "pause_count",
+                        0,
+                    ) or 0,
+
+                "average_pause":
+                    getattr(
+                        interview,
+                        "average_pause",
+                        0,
+                    ) or 0,
+
+                "longest_pause":
+                    getattr(
+                        interview,
+                        "longest_pause",
+                        0,
+                    ) or 0,
+
+                "prosody": {
+
+                    "average_pitch_hz":
+                        getattr(
+                            interview,
+                            "average_pitch",
+                            0,
+                        ) or 0,
+
+                    "pitch_variation_hz":
+                        getattr(
+                            interview,
+                            "pitch_variation",
+                            0,
+                        ) or 0,
+
+                    "average_energy":
+                        getattr(
+                            interview,
+                            "average_energy",
+                            0,
+                        ) or 0,
+
+                    "energy_variation":
+                        getattr(
+                            interview,
+                            "energy_variation",
+                            0,
+                        ) or 0,
+                },
+            },
+        }
+
+        # --------------------------------------------------------
+        # Send data to Reka
+        # --------------------------------------------------------
+
+        feedback = generate_ai_feedback(
+            interview_data
+        )
+
+        # --------------------------------------------------------
+        # Return Reka result to frontend
+        # --------------------------------------------------------
+
+        return {
+
+            "status": "success",
+
+            "interview_id": interview_id,
+
+            "ai_feedback": feedback,
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+
+        print(
+            "REKA AI ERROR:",
+            error
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(error),
+        )
