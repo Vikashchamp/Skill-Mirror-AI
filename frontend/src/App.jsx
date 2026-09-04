@@ -25,7 +25,10 @@ function App() {
         <Route path="/setup" element={<Setup />} />
         <Route path="/interview" element={<Interview />} />
         <Route path="/processing" element={<Processing />} />
+
+        {/* Results */}
         <Route path="/results" element={<Results />} />
+        <Route path="/results/:interviewId" element={<Results />} />
 
         {/* Interview History */}
         <Route path="/history" element={<History />} />

@@ -1,101 +1,103 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 
 function History() {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
-  const [interviews, setInterviews] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [history, setHistory] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
   // ---------------------------------------------------------
-  // GET LOGGED-IN USER
+  // GET CURRENT USER
   // ---------------------------------------------------------
 
-  const user = JSON.parse(
-  sessionStorage.getItem("skillmirrorUser") || "null"
-);
+  const storedUser = sessionStorage.getItem("skillmirrorUser")
 
-const userId = user?.user_id;
+  let userId = 1
+
+  if (storedUser) {
+    try {
+      const user = JSON.parse(storedUser)
+
+      if (user?.user_id) {
+        userId = user.user_id
+      }
+    } catch (error) {
+      console.error("Could not read stored user:", error)
+    }
+  }
 
   // ---------------------------------------------------------
   // FETCH INTERVIEW HISTORY
   // ---------------------------------------------------------
 
   useEffect(() => {
-    // User is not logged in
-    if (!user || !user.user_id) {
-      setError("Please login to view your interview history.");
-      setLoading(false);
-      return;
+    const fetchHistory = async () => {
+      try {
+        setLoading(true)
+        setError("")
+
+        const response = await fetch(
+          `http://127.0.0.1:8000/interview-history/${userId}`
+        )
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch interview history")
+        }
+
+        const data = await response.json()
+
+        setHistory(
+          Array.isArray(data)
+            ? data
+            : data.interviews || data.history || []
+        )
+      } catch (err) {
+        console.error("History fetch error:", err)
+        setError("Unable to load interview history.")
+      } finally {
+        setLoading(false)
+      }
     }
 
-    fetch(
-      `http://127.0.0.1:8000/interview-history/${userId}`
-    )
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(
-            "Failed to fetch interview history"
-          );
-        }
+    fetchHistory()
+  }, [userId])
 
-        return response.json();
-      })
-      .then((data) => {
-        if (data.status === "success") {
-          setInterviews(data.interviews || []);
-        } else {
-          setError(
-            data.message ||
-              "Unable to load interview history"
-          );
-        }
-      })
-      .catch((err) => {
-        setError(err.message);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [user?.user_id]);
+  // ---------------------------------------------------------
+  // VIEW RESULTS
+  // ---------------------------------------------------------
+
+  const handleViewResults = (interview) => {
+    if (!interview?.id) {
+      console.error("Interview ID is missing:", interview)
+      return
+    }
+
+    // Keep the selected interview available to Results page
+    sessionStorage.setItem(
+      "selectedInterview",
+      JSON.stringify(interview)
+    )
+
+    // Navigate with interview ID
+    navigate(`/results/${interview.id}`)
+  }
 
   // ---------------------------------------------------------
   // FORMAT DATE
   // ---------------------------------------------------------
 
-  const formatDate = (dateString) => {
-    if (!dateString) {
-      return "Unknown date";
+  const formatDate = (dateValue) => {
+    if (!dateValue) {
+      return "Date unavailable"
     }
 
-    return new Date(dateString).toLocaleString();
-  };
-
-  // ---------------------------------------------------------
-  // NOT LOGGED IN / ERROR
-  // ---------------------------------------------------------
-
-  if (!user || !user.user_id) {
-    return (
-      <div style={styles.page}>
-        <div style={styles.centerBox}>
-          <h1 style={styles.title}>
-            Interview History
-          </h1>
-
-          <p style={styles.message}>
-            Please login to view your interview history.
-          </p>
-
-          <button
-            style={styles.button}
-            onClick={() => navigate("/login")}
-          >
-            Login →
-          </button>
-        </div>
-      </div>
-    );
+    try {
+      return new Date(dateValue).toLocaleString()
+    } catch {
+      return dateValue
+    }
   }
 
   // ---------------------------------------------------------
@@ -105,17 +107,20 @@ const userId = user?.user_id;
   if (loading) {
     return (
       <div style={styles.page}>
-        <div style={styles.centerBox}>
-          <h1 style={styles.title}>
-            Interview History
-          </h1>
+        <div style={styles.container}>
+          <button
+            style={styles.backButton}
+            onClick={() => navigate("/")}
+          >
+            ← Back to Dashboard
+          </button>
 
-          <p style={styles.message}>
-            Loading your interviews...
-          </p>
+          <div style={styles.centerMessage}>
+            Loading interview history...
+          </div>
         </div>
       </div>
-    );
+    )
   }
 
   // ---------------------------------------------------------
@@ -125,50 +130,36 @@ const userId = user?.user_id;
   if (error) {
     return (
       <div style={styles.page}>
-        <div style={styles.centerBox}>
-          <h1 style={styles.title}>
-            Interview History
-          </h1>
-
-          <p style={styles.error}>
-            {error}
-          </p>
-
+        <div style={styles.container}>
           <button
-            style={styles.button}
+            style={styles.backButton}
             onClick={() => navigate("/")}
           >
-            Back to Dashboard
+            ← Back to Dashboard
           </button>
+
+          <div style={styles.errorMessage}>
+            {error}
+          </div>
         </div>
       </div>
-    );
+    )
   }
 
   // ---------------------------------------------------------
-  // MAIN PAGE
+  // MAIN UI
   // ---------------------------------------------------------
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
 
-        {/* ------------------------------------------------ */}
         {/* HEADER */}
-        {/* ------------------------------------------------ */}
-
         <div style={styles.header}>
 
           <div>
-            <button
-              onClick={() => navigate("/")}
-              style={styles.backButton}
-            >
-              ← Dashboard
-            </button>
-
-            <p style={styles.label}>
-              YOUR PROGRESS
+            <p style={styles.eyebrow}>
+              SKILLMIRROR AI
             </p>
 
             <h1 style={styles.title}>
@@ -177,31 +168,25 @@ const userId = user?.user_id;
 
             <p style={styles.subtitle}>
               Review your previous interview performances
-              and track your improvement over time.
+              and AI-powered feedback.
             </p>
           </div>
 
-          <div style={styles.countBox}>
-            <span style={styles.count}>
-              {interviews.length}
-            </span>
-
-            <span style={styles.countLabel}>
-              INTERVIEWS
-            </span>
-          </div>
+          <button
+            style={styles.dashboardButton}
+            onClick={() => navigate("/")}
+          >
+            Dashboard
+          </button>
 
         </div>
 
-        {/* ------------------------------------------------ */}
         {/* EMPTY STATE */}
-        {/* ------------------------------------------------ */}
-
-        {interviews.length === 0 ? (
-          <div style={styles.empty}>
+        {history.length === 0 ? (
+          <div style={styles.emptyCard}>
 
             <div style={styles.emptyIcon}>
-              ✦
+              🎤
             </div>
 
             <h2 style={styles.emptyTitle}>
@@ -209,143 +194,125 @@ const userId = user?.user_id;
             </h2>
 
             <p style={styles.emptyText}>
-              Complete your first mock interview and
-              your results will appear here.
+              Complete your first interview to see your
+              performance history here.
             </p>
 
             <button
-              style={styles.button}
+              style={styles.startButton}
               onClick={() => navigate("/setup")}
             >
-              Start Your First Interview →
+              Start Interview
             </button>
 
           </div>
         ) : (
 
-          /* ------------------------------------------------ */
-          /* INTERVIEW LIST */
-          /* ------------------------------------------------ */
-
+          /* HISTORY LIST */
           <div style={styles.list}>
 
-            {interviews.map((interview) => (
+            {history.map((interview, index) => (
 
               <div
-                key={interview.id}
+                key={
+                  interview.id ??
+                  `interview-${index}`
+                }
                 style={styles.card}
               >
 
                 {/* CARD HEADER */}
-
                 <div style={styles.cardHeader}>
 
                   <div>
-
                     <p style={styles.interviewNumber}>
-                      INTERVIEW #{interview.id}
+                      INTERVIEW #{interview.id ?? index + 1}
                     </p>
 
-                    <h2 style={styles.date}>
-                      {formatDate(
-                        interview.created_at
-                      )}
+                    <h2 style={styles.cardTitle}>
+                      Interview Session
                     </h2>
 
+                    <p style={styles.date}>
+                      {formatDate(
+                        interview.created_at ||
+                        interview.timestamp ||
+                        interview.date
+                      )}
+                    </p>
                   </div>
 
-                  <div style={styles.engagement}>
-
-                    <span
-                      style={styles.engagementValue}
-                    >
-                      {Number(
-                        interview.engagement_score || 0
-                      ).toFixed(1)}
-                    </span>
-
-                    <span
-                      style={styles.engagementLabel}
-                    >
-                      ENGAGEMENT
-                    </span>
-
+                  <div style={styles.status}>
+                    Completed
                   </div>
 
                 </div>
 
                 {/* METRICS */}
-
                 <div style={styles.metrics}>
 
-                  <Metric
-                    label="Words"
-                    value={
-                      interview.word_count ?? 0
-                    }
-                  />
+                  <div style={styles.metric}>
+                    <span style={styles.metricLabel}>
+                      Engagement
+                    </span>
 
-                  <Metric
-                    label="Speaking Pace"
-                    value={`${Number(
-                      interview.words_per_minute || 0
-                    ).toFixed(0)} WPM`}
-                  />
+                    <span style={styles.metricValue}>
+                      {interview.engagement_score != null
+                        ? `${Number(
+                            interview.engagement_score
+                          ).toFixed(2)}%`
+                        : "—"}
+                    </span>
+                  </div>
 
-                  <Metric
-                    label="Filler Words"
-                    value={
-                      interview.total_fillers ?? 0
-                    }
-                  />
+                  <div style={styles.metric}>
+                    <span style={styles.metricLabel}>
+                      Speaking Rate
+                    </span>
 
-                  <Metric
-                    label="Pauses"
-                    value={
-                      interview.pause_count ?? 0
-                    }
-                  />
+                    <span style={styles.metricValue}>
+                      {interview.words_per_minute != null
+                        ? `${Number(
+                            interview.words_per_minute
+                          ).toFixed(0)} WPM`
+                        : "—"}
+                    </span>
+                  </div>
+
+                  <div style={styles.metric}>
+                    <span style={styles.metricLabel}>
+                      Fillers
+                    </span>
+
+                    <span style={styles.metricValue}>
+                      {interview.total_fillers != null
+                        ? interview.total_fillers
+                        : "—"}
+                    </span>
+                  </div>
+
+                  <div style={styles.metric}>
+                    <span style={styles.metricLabel}>
+                      Pauses
+                    </span>
+
+                    <span style={styles.metricValue}>
+                      {interview.pause_count != null
+                        ? interview.pause_count
+                        : "—"}
+                    </span>
+                  </div>
 
                 </div>
 
-                {/* TRANSCRIPT */}
-
-                {interview.transcript && (
-                  <div style={styles.transcriptBox}>
-
-                    <span style={styles.transcriptLabel}>
-                      TRANSCRIPT
-                    </span>
-
-                    <p style={styles.transcript}>
-                      {interview.transcript}
-                    </p>
-
-                  </div>
-                )}
-
-                {/* FOOTER */}
-
-                <div style={styles.footer}>
-
-                  <span>
-                    Duration:{" "}
-                    {Number(
-                      interview.audio_duration || 0
-                    ).toFixed(1)}
-                    s
-                  </span>
+                {/* VIEW RESULTS */}
+                <div style={styles.cardFooter}>
 
                   <button
-                    style={styles.button}
-                    onClick={() => {
-  sessionStorage.setItem(
-    "selectedInterview",
-    JSON.stringify(interview)
-  );
-
-  navigate("/results");
-}}
+                    style={styles.resultsButton}
+                    onClick={() =>
+                      handleViewResults(interview)
+                    }
                   >
                     View Results →
                   </button>
@@ -361,56 +328,34 @@ const userId = user?.user_id;
 
       </div>
     </div>
-  );
+  )
 }
-
-// ============================================================
-// METRIC COMPONENT
-// ============================================================
-
-function Metric({ label, value }) {
-  return (
-    <div style={styles.metric}>
-
-      <span style={styles.metricLabel}>
-        {label}
-      </span>
-
-      <strong style={styles.metricValue}>
-        {value}
-      </strong>
-
-    </div>
-  );
-}
-
-// ============================================================
-// STYLES
-// ============================================================
 
 const styles = {
 
   page: {
     minHeight: "100vh",
-    background: "#110d19",
+    background:
+      "linear-gradient(135deg, #09090b 0%, #111116 55%, #17131b 100%)",
     color: "#ffffff",
-    padding: "60px 24px",
+    padding: "40px 24px",
     boxSizing: "border-box",
   },
 
   container: {
+    width: "100%",
     maxWidth: "1100px",
     margin: "0 auto",
   },
 
-  centerBox: {
-    maxWidth: "600px",
-    margin: "120px auto",
-    textAlign: "center",
-    background: "#211a2d",
-    border: "1px solid #3d324d",
-    borderRadius: "20px",
-    padding: "60px 30px",
+  backButton: {
+    background: "transparent",
+    border: "none",
+    color: "#a1a1aa",
+    fontSize: "14px",
+    cursor: "pointer",
+    padding: "0",
+    marginBottom: "30px",
   },
 
   header: {
@@ -421,218 +366,192 @@ const styles = {
     marginBottom: "45px",
   },
 
-  backButton: {
-    background: "transparent",
-    border: "none",
-    color: "#b78cff",
-    cursor: "pointer",
-    fontSize: "14px",
-    padding: "0",
-    marginBottom: "25px",
-  },
-
-  label: {
-    color: "#b78cff",
-    letterSpacing: "4px",
-    fontSize: "13px",
+  eyebrow: {
+    margin: "0 0 10px",
+    fontSize: "11px",
+    letterSpacing: "0.22em",
+    color: "#bd96ee",
     fontWeight: "600",
-    marginBottom: "12px",
   },
 
   title: {
-    fontSize: "48px",
-    margin: 0,
-    fontWeight: "600",
+    margin: "0",
+    fontSize: "42px",
+    lineHeight: "1.1",
+    fontWeight: "700",
   },
 
   subtitle: {
-    color: "#b8adc9",
-    fontSize: "17px",
+    marginTop: "14px",
+    marginBottom: "0",
+    color: "#a1a1aa",
+    fontSize: "15px",
+    maxWidth: "600px",
     lineHeight: "1.6",
-    maxWidth: "650px",
-    marginTop: "15px",
   },
 
-  countBox: {
-    background: "#282038",
-    border: "1px solid #403354",
-    borderRadius: "18px",
-    padding: "20px 28px",
-    minWidth: "120px",
-    textAlign: "center",
-  },
-
-  count: {
-    display: "block",
-    fontSize: "32px",
-    fontWeight: "600",
-  },
-
-  countLabel: {
-    display: "block",
-    color: "#a99aba",
-    fontSize: "11px",
-    letterSpacing: "2px",
-    marginTop: "4px",
+  dashboardButton: {
+    padding: "11px 20px",
+    borderRadius: "10px",
+    border: "1px solid #27272a",
+    background: "#18181b",
+    color: "#ffffff",
+    cursor: "pointer",
+    fontSize: "14px",
   },
 
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: "22px",
+    gap: "18px",
   },
 
   card: {
-    background: "#211a2d",
-    border: "1px solid #3d324d",
-    borderRadius: "20px",
-    padding: "28px",
+    background:
+      "rgba(24, 24, 27, 0.85)",
+    border: "1px solid #27272a",
+    borderRadius: "18px",
+    padding: "25px",
+    boxSizing: "border-box",
   },
 
   cardHeader: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: "20px",
   },
 
   interviewNumber: {
-    color: "#b78cff",
-    letterSpacing: "2px",
-    fontSize: "12px",
-    margin: 0,
+    margin: "0 0 7px",
+    fontSize: "10px",
+    letterSpacing: "0.18em",
+    color: "#bd96ee",
+    fontWeight: "600",
   },
 
-  date: {
-    fontSize: "21px",
-    fontWeight: "500",
-    margin: "8px 0 0",
-  },
-
-  engagement: {
-    border: "2px solid #b78cff",
-    borderRadius: "50%",
-    width: "82px",
-    height: "82px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  engagementValue: {
+  cardTitle: {
+    margin: "0",
     fontSize: "21px",
     fontWeight: "600",
   },
 
-  engagementLabel: {
-    fontSize: "8px",
-    color: "#b8adc9",
-    marginTop: "3px",
+  date: {
+    margin: "7px 0 0",
+    color: "#71717a",
+    fontSize: "13px",
+  },
+
+  status: {
+    padding: "7px 11px",
+    borderRadius: "999px",
+    background: "#18181b",
+    border: "1px solid #27272a",
+    color: "#a1a1aa",
+    fontSize: "11px",
   },
 
   metrics: {
     display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(150px, 1fr))",
     gap: "12px",
     marginTop: "25px",
   },
 
   metric: {
-    background: "#2a2238",
+    background: "#111113",
+    border: "1px solid #27272a",
     borderRadius: "12px",
-    padding: "17px",
+    padding: "15px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "7px",
   },
 
   metricLabel: {
-    display: "block",
-    color: "#a99aba",
-    fontSize: "12px",
-    marginBottom: "7px",
+    fontSize: "11px",
+    color: "#71717a",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
   },
 
   metricValue: {
-    fontSize: "20px",
-  },
-
-  transcriptBox: {
-    marginTop: "20px",
-    padding: "18px",
-    borderRadius: "12px",
-    background: "#2a2238",
-    border: "1px solid #3d324d",
-  },
-
-  transcriptLabel: {
-    display: "block",
-    color: "#b78cff",
-    fontSize: "11px",
-    letterSpacing: "2px",
-    marginBottom: "8px",
-  },
-
-  transcript: {
-    color: "#b8adc9",
-    lineHeight: "1.6",
-    margin: 0,
-  },
-
-  footer: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "20px",
-    marginTop: "25px",
-    paddingTop: "20px",
-    borderTop: "1px solid #3d324d",
-    color: "#a99aba",
-    fontSize: "13px",
-  },
-
-  button: {
-    background: "#b78cff",
-    color: "#17121f",
-    border: "none",
-    borderRadius: "10px",
-    padding: "11px 18px",
+    fontSize: "19px",
     fontWeight: "600",
-    cursor: "pointer",
+    color: "#ffffff",
   },
 
-  empty: {
-    background: "#211a2d",
-    border: "1px solid #3d324d",
-    borderRadius: "20px",
-    padding: "60px",
+  cardFooter: {
+    display: "flex",
+    justifyContent: "flex-end",
+    marginTop: "22px",
+    paddingTop: "18px",
+    borderTop: "1px solid #27272a",
+  },
+
+  resultsButton: {
+    padding: "11px 18px",
+    borderRadius: "10px",
+    border: "1px solid #3f3f46",
+    background: "#ffffff",
+    color: "#09090b",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "600",
+  },
+
+  emptyCard: {
     textAlign: "center",
+    padding: "80px 30px",
+    borderRadius: "18px",
+    border: "1px solid #27272a",
+    background: "rgba(24, 24, 27, 0.8)",
   },
 
   emptyIcon: {
     fontSize: "42px",
-    color: "#b78cff",
     marginBottom: "20px",
   },
 
   emptyTitle: {
-    fontSize: "28px",
-    marginBottom: "10px",
+    margin: "0",
+    fontSize: "25px",
   },
 
   emptyText: {
-    color: "#b8adc9",
-    marginBottom: "25px",
+    maxWidth: "480px",
+    margin:
+      "12px auto 25px",
+    color: "#a1a1aa",
     lineHeight: "1.6",
+    fontSize: "14px",
   },
 
-  message: {
-    color: "#b8adc9",
-    marginBottom: "25px",
+  startButton: {
+    padding: "12px 22px",
+    borderRadius: "10px",
+    border: "none",
+    background: "#ffffff",
+    color: "#09090b",
+    cursor: "pointer",
+    fontWeight: "600",
   },
 
-  error: {
-    color: "#ff8c8c",
-    marginBottom: "25px",
+  centerMessage: {
+    textAlign: "center",
+    padding: "100px 20px",
+    color: "#a1a1aa",
   },
-};
 
-export default History;
+  errorMessage: {
+    textAlign: "center",
+    padding: "40px",
+    borderRadius: "14px",
+    border: "1px solid #3f2020",
+    background: "#181113",
+    color: "#fca5a5",
+  },
+}
+
+export default History

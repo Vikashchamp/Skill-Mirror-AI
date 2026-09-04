@@ -7,13 +7,13 @@ from openai import OpenAI
 
 
 # ============================================================
-# LOAD ENVIRONMENT
+# LOAD ENVIRONMENT VARIABLES
 # ============================================================
 
 load_dotenv(
     os.path.join(
         os.path.dirname(__file__),
-        ".env"
+        ".env",
     )
 )
 
@@ -21,8 +21,7 @@ REKA_API_KEY = os.getenv("REKA_API_KEY")
 
 if not REKA_API_KEY:
     raise RuntimeError(
-        "REKA_API_KEY is missing. "
-        "Add it to backend/.env"
+        "REKA_API_KEY is missing. Add it to backend/.env"
     )
 
 
@@ -37,91 +36,442 @@ client = OpenAI(
 
 
 # ============================================================
-# DEFAULT FEEDBACK
+# DEFAULT RESPONSE
 # ============================================================
 
-def empty_feedback(message="AI feedback unavailable."):
-
+def empty_feedback():
     return {
-        "overall_assessment": message,
-
+        "overall_assessment": "",
         "strengths": [],
-
         "weaknesses": [],
-
         "speech_feedback": {
             "summary": "",
             "suggestions": [],
         },
-
         "voice_feedback": {
             "summary": "",
             "suggestions": [],
         },
-
         "visual_feedback": {
             "summary": "",
             "suggestions": [],
         },
-
         "improvement_suggestions": [],
-
         "interview_coaching": [],
-
         "practice_plan": [],
-
         "encouragement": "",
     }
 
 
 # ============================================================
-# CLEAN REKA RESPONSE
+# REPAIR COMMON JSON FORMATTING ERRORS
 # ============================================================
 
-def clean_reka_response(content):
+def repair_json(content):
 
     if not content:
-        return None
+        return content
 
     content = content.strip()
 
-    # Remove ```json ... ```
+    # --------------------------------------------------------
+    # Remove markdown code fences
+    # --------------------------------------------------------
+
     content = re.sub(
-        r"^```json\s*",
+        r"```json\s*",
         "",
         content,
         flags=re.IGNORECASE,
     )
 
     content = re.sub(
-        r"^```\s*",
-        "",
-        content,
-    )
-
-    content = re.sub(
-        r"\s*```$",
+        r"```\s*",
         "",
         content,
     )
 
     content = content.strip()
 
-    # Find first JSON object if Reka added extra text
-    start = content.find("{")
-    end = content.rfind("}")
+    # --------------------------------------------------------
+    # Repair missing commas between string fields
+    # --------------------------------------------------------
 
-    if start != -1 and end != -1 and end > start:
+    content = re.sub(
+        r'("\s*)\n(\s*")',
+        r'\1,\n\2',
+        content,
+    )
 
-        content = content[start:end + 1]
+    # --------------------------------------------------------
+    # Repair missing commas after arrays/objects
+    # --------------------------------------------------------
+
+    content = re.sub(
+        r'(\]|\})\s*\n(\s*")',
+        r'\1,\n\2',
+        content,
+    )
+
+    # --------------------------------------------------------
+    # Remove accidental double commas
+    # --------------------------------------------------------
+
+    content = re.sub(
+        r",\s*,",
+        ",",
+        content,
+    )
+
+    return content.strip()
+
+
+# ============================================================
+# EXTRACT JSON FROM RESPONSE
+# ============================================================
+
+def extract_json(content):
+
+    if not content:
+        return None
+
+    content = content.strip()
+
+    # --------------------------------------------------------
+    # First attempt: normal JSON
+    # --------------------------------------------------------
 
     try:
-
         return json.loads(content)
 
     except json.JSONDecodeError:
+        pass
 
-        return None
+    # --------------------------------------------------------
+    # Second attempt: repair common JSON mistakes
+    # --------------------------------------------------------
+
+    repaired = repair_json(content)
+
+    try:
+        return json.loads(repaired)
+
+    except json.JSONDecodeError:
+        pass
+
+    # --------------------------------------------------------
+    # Third attempt: extract JSON object from text
+    # --------------------------------------------------------
+
+    start = repaired.find("{")
+    end = repaired.rfind("}")
+
+    if start != -1 and end != -1 and end > start:
+
+        possible_json = repaired[
+            start:end + 1
+        ]
+
+        try:
+            return json.loads(
+                possible_json
+            )
+
+        except json.JSONDecodeError:
+            pass
+
+    return None
+
+
+# ============================================================
+# NORMALIZE REKA RESPONSE
+# ============================================================
+
+def normalize_feedback(data):
+
+    if not isinstance(data, dict):
+        return empty_feedback()
+
+    result = empty_feedback()
+
+    # ========================================================
+    # OVERALL ASSESSMENT
+    # ========================================================
+
+    result["overall_assessment"] = str(
+        data.get(
+            "overall_assessment",
+            "",
+        )
+    ).strip()
+
+    # Keep it reasonably short
+    if len(result["overall_assessment"]) > 600:
+        result["overall_assessment"] = (
+            result["overall_assessment"][:600].rstrip()
+            + "..."
+        )
+
+    # ========================================================
+    # STRENGTHS
+    # ========================================================
+
+    strengths = data.get(
+        "strengths",
+        [],
+    )
+
+    if isinstance(strengths, list):
+
+        result["strengths"] = [
+            str(item).strip()
+            for item in strengths[:3]
+            if str(item).strip()
+        ]
+
+    # ========================================================
+    # WEAKNESSES
+    # ========================================================
+
+    weaknesses = data.get(
+        "weaknesses",
+        [],
+    )
+
+    if isinstance(weaknesses, list):
+
+        result["weaknesses"] = [
+            str(item).strip()
+            for item in weaknesses[:3]
+            if str(item).strip()
+        ]
+
+    # ========================================================
+    # SPEECH FEEDBACK
+    # ========================================================
+
+    speech = data.get(
+        "speech_feedback",
+        {},
+    )
+
+    if isinstance(speech, dict):
+
+        suggestions = speech.get(
+            "suggestions",
+            [],
+        )
+
+        result["speech_feedback"] = {
+            "summary": str(
+                speech.get(
+                    "summary",
+                    "",
+                )
+            ).strip()[:500],
+
+            "suggestions": (
+                [
+                    str(item).strip()
+                    for item in suggestions[:3]
+                    if str(item).strip()
+                ]
+                if isinstance(
+                    suggestions,
+                    list,
+                )
+                else []
+            ),
+        }
+
+    # ========================================================
+    # VOICE FEEDBACK
+    # ========================================================
+
+    voice = data.get(
+        "voice_feedback",
+        {},
+    )
+
+    if isinstance(voice, dict):
+
+        suggestions = voice.get(
+            "suggestions",
+            [],
+        )
+
+        result["voice_feedback"] = {
+            "summary": str(
+                voice.get(
+                    "summary",
+                    "",
+                )
+            ).strip()[:500],
+
+            "suggestions": (
+                [
+                    str(item).strip()
+                    for item in suggestions[:3]
+                    if str(item).strip()
+                ]
+                if isinstance(
+                    suggestions,
+                    list,
+                )
+                else []
+            ),
+        }
+
+    # ========================================================
+    # VISUAL FEEDBACK
+    # ========================================================
+
+    visual = data.get(
+        "visual_feedback",
+        {},
+    )
+
+    if isinstance(visual, dict):
+
+        suggestions = visual.get(
+            "suggestions",
+            [],
+        )
+
+        result["visual_feedback"] = {
+            "summary": str(
+                visual.get(
+                    "summary",
+                    "",
+                )
+            ).strip()[:500],
+
+            "suggestions": (
+                [
+                    str(item).strip()
+                    for item in suggestions[:3]
+                    if str(item).strip()
+                ]
+                if isinstance(
+                    suggestions,
+                    list,
+                )
+                else []
+            ),
+        }
+
+    # ========================================================
+    # IMPROVEMENT SUGGESTIONS
+    # ========================================================
+
+    improvements = data.get(
+        "improvement_suggestions",
+        None,
+    )
+
+    # Reka may sometimes use this alternative name
+    if improvements is None:
+
+        improvements = data.get(
+            "development_recommendations",
+            [],
+        )
+
+    if isinstance(improvements, list):
+
+        result["improvement_suggestions"] = [
+            str(item).strip()
+            for item in improvements[:4]
+            if str(item).strip()
+        ]
+
+    # ========================================================
+    # INTERVIEW COACHING
+    # ========================================================
+
+    coaching = data.get(
+        "interview_coaching",
+        [],
+    )
+
+    if isinstance(coaching, list):
+
+        result["interview_coaching"] = [
+            str(item).strip()
+            for item in coaching[:3]
+            if str(item).strip()
+        ]
+
+    # ========================================================
+    # PRACTICE PLAN
+    # ========================================================
+
+    practice = data.get(
+        "practice_plan",
+        [],
+    )
+
+    if isinstance(practice, list):
+
+        result["practice_plan"] = [
+            str(item).strip()
+            for item in practice[:4]
+            if str(item).strip()
+        ]
+
+    # ========================================================
+    # ENCOURAGEMENT
+    # ========================================================
+
+    result["encouragement"] = str(
+        data.get(
+            "encouragement",
+            "",
+        )
+    ).strip()[:300]
+
+    # ========================================================
+    # FALLBACK PRACTICE PLAN
+    # ========================================================
+
+    if (
+        not result["practice_plan"]
+        and result["improvement_suggestions"]
+    ):
+
+        result["practice_plan"] = (
+            result[
+                "improvement_suggestions"
+            ][:3]
+        )
+
+    # ========================================================
+    # FALLBACK INTERVIEW COACHING
+    # ========================================================
+
+    if (
+        not result["interview_coaching"]
+        and result["weaknesses"]
+    ):
+
+        result["interview_coaching"] = [
+            "Keep answers concise and structured.",
+            "Support important claims with specific examples.",
+        ]
+
+    # ========================================================
+    # FALLBACK ENCOURAGEMENT
+    # ========================================================
+
+    if not result["encouragement"]:
+
+        result["encouragement"] = (
+            "You have a strong foundation. "
+            "Focus on the specific improvements above "
+            "and keep practicing."
+        )
+
+    return result
 
 
 # ============================================================
@@ -130,284 +480,711 @@ def clean_reka_response(content):
 
 def generate_ai_feedback(interview_data):
 
-    prompt = f"""
-You are SkillMirror AI, a professional interview coach.
+    # --------------------------------------------------------
+    # Keep only the useful information for Reka.
+    #
+    # This prevents unnecessary data from increasing the
+    # model's reasoning/output size.
+    # --------------------------------------------------------
 
-Analyze ONLY the interview measurements provided below.
+    compact_data = {
+        "interview_id": interview_data.get(
+            "interview_id"
+        ),
 
-Do NOT invent measurements.
-Do NOT assume missing information.
-If a metric is 0 or unavailable, say that it could not
-be meaningfully evaluated.
+        "video_analysis": {
+            "face_detection_percentage":
+                interview_data.get(
+                    "video_analysis",
+                    {}
+                ).get(
+                    "face_detection_percentage",
+                    None,
+                ),
 
-Your job is to provide concise, practical and personalized
-coaching for a student preparing for interviews.
+            "eye_open_percentage":
+                interview_data.get(
+                    "video_analysis",
+                    {}
+                ).get(
+                    "eye_open_percentage",
+                    None,
+                ),
 
-INTERVIEW DATA:
+            "forward_looking_percentage":
+                interview_data.get(
+                    "video_analysis",
+                    {}
+                ).get(
+                    "forward_looking_percentage",
+                    None,
+                ),
 
-{json.dumps(interview_data, indent=2, default=str)}
+            "average_engagement":
+                interview_data.get(
+                    "video_analysis",
+                    {}
+                ).get(
+                    "average_engagement",
+                    None,
+                ),
+        },
 
+        "speech_analysis": {
+            "transcript":
+                interview_data.get(
+                    "speech_analysis",
+                    {}
+                ).get(
+                    "transcript",
+                    None,
+                ),
 
-Return ONLY a valid JSON object.
+            "word_count":
+                interview_data.get(
+                    "speech_analysis",
+                    {}
+                ).get(
+                    "word_count",
+                    None,
+                ),
 
-Do NOT use Markdown.
-Do NOT use ```json.
-Do NOT add explanations before or after the JSON.
+            "audio_duration":
+                interview_data.get(
+                    "speech_analysis",
+                    {}
+                ).get(
+                    "audio_duration",
+                    None,
+                ),
 
-Use EXACTLY this structure:
+            "speaking_duration":
+                interview_data.get(
+                    "speech_analysis",
+                    {}
+                ).get(
+                    "speaking_duration",
+                    None,
+                ),
 
-{{
-  "overall_assessment": "short assessment",
+            "words_per_minute":
+                interview_data.get(
+                    "speech_analysis",
+                    {}
+                ).get(
+                    "words_per_minute",
+                    None,
+                ),
 
-  "strengths": [
-    {{
-      "category": "category",
-      "description": "specific strength supported by the data"
-    }}
-  ],
+            "total_fillers":
+                interview_data.get(
+                    "speech_analysis",
+                    {}
+                ).get(
+                    "total_fillers",
+                    None,
+                ),
 
-  "weaknesses": [
-    {{
-      "category": "category",
-      "description": "specific improvement area supported by the data"
-    }}
-  ],
+            "pause_count":
+                interview_data.get(
+                    "speech_analysis",
+                    {}
+                ).get(
+                    "pause_count",
+                    None,
+                ),
 
-  "speech_feedback": {{
-    "summary": "speech analysis summary",
-    "suggestions": [
-      "actionable suggestion"
-    ]
-  }},
+            "average_pause":
+                interview_data.get(
+                    "speech_analysis",
+                    {}
+                ).get(
+                    "average_pause",
+                    None,
+                ),
 
-  "voice_feedback": {{
-    "summary": "voice and prosody summary",
-    "suggestions": [
-      "actionable suggestion"
-    ]
-  }},
+            "longest_pause":
+                interview_data.get(
+                    "speech_analysis",
+                    {}
+                ).get(
+                    "longest_pause",
+                    None,
+                ),
 
-  "visual_feedback": {{
-    "summary": "facial engagement and visual behavior summary",
-    "suggestions": [
-      "actionable suggestion"
-    ]
-  }},
+            "prosody": {
+                "average_pitch_hz":
+                    interview_data.get(
+                        "speech_analysis",
+                        {}
+                    ).get(
+                        "prosody",
+                        {}
+                    ).get(
+                        "average_pitch_hz",
+                        None,
+                    ),
 
-  "improvement_suggestions": [
-    "specific improvement"
-  ],
+                "pitch_variation_hz":
+                    interview_data.get(
+                        "speech_analysis",
+                        {}
+                    ).get(
+                        "prosody",
+                        {}
+                    ).get(
+                        "pitch_variation_hz",
+                        None,
+                    ),
 
-  "interview_coaching": [
-    "specific interview coaching tip"
-  ],
+                "average_energy":
+                    interview_data.get(
+                        "speech_analysis",
+                        {}
+                    ).get(
+                        "prosody",
+                        {}
+                    ).get(
+                        "average_energy",
+                        None,
+                    ),
 
-  "practice_plan": [
-    "specific practice activity"
-  ],
+                "energy_variation":
+                    interview_data.get(
+                        "speech_analysis",
+                        {}
+                    ).get(
+                        "prosody",
+                        {}
+                    ).get(
+                        "energy_variation",
+                        None,
+                    ),
+            },
+        },
+    }
 
-  "encouragement": "short encouraging message"
-}}
+    interview_json = json.dumps(
+        compact_data,
+        indent=2,
+        default=str,
+    )
 
-Keep the response focused.
+    # ========================================================
+    # FUNCTION SCHEMA
+    # ========================================================
 
-Prefer 2-4 strengths.
-Prefer 2-4 weaknesses.
-Prefer 2-4 suggestions in each feedback section.
-Prefer 3-5 improvement suggestions.
-Prefer 3-5 coaching tips.
-Prefer 3-5 practice activities.
+    feedback_schema = {
+        "type": "object",
 
-Every recommendation must be connected to the supplied
-interview data.
-"""
+        "additionalProperties": False,
 
-    print("\n")
-    print("=" * 60)
-    print("SENDING INTERVIEW DATA TO REKA AI")
-    print("=" * 60)
+        "properties": {
+
+            # ------------------------------------------------
+            # OVERALL
+            # ------------------------------------------------
+
+            "overall_assessment": {
+                "type": "string",
+                "maxLength": 400,
+                "description": (
+                    "One concise overall assessment. "
+                    "Maximum about 3 sentences. "
+                    "Do not repeat the same point."
+                ),
+            },
+
+            # ------------------------------------------------
+            # STRENGTHS
+            # ------------------------------------------------
+
+            "strengths": {
+                "type": "array",
+                "maxItems": 3,
+                "description": (
+                    "At most 3 genuine strengths supported "
+                    "by the supplied metrics."
+                ),
+                "items": {
+                    "type": "string",
+                    "maxLength": 160,
+                },
+            },
+
+            # ------------------------------------------------
+            # WEAKNESSES
+            # ------------------------------------------------
+
+            "weaknesses": {
+                "type": "array",
+                "maxItems": 3,
+                "description": (
+                    "At most 3 important weaknesses supported "
+                    "by the supplied metrics."
+                ),
+                "items": {
+                    "type": "string",
+                    "maxLength": 160,
+                },
+            },
+
+            # ------------------------------------------------
+            # SPEECH
+            # ------------------------------------------------
+
+            "speech_feedback": {
+                "type": "object",
+                "additionalProperties": False,
+
+                "properties": {
+
+                    "summary": {
+                        "type": "string",
+                        "maxLength": 300,
+                        "description": (
+                            "Concise speech assessment based "
+                            "only on transcript, WPM, fillers "
+                            "and pauses."
+                        ),
+                    },
+
+                    "suggestions": {
+                        "type": "array",
+                        "maxItems": 3,
+                        "items": {
+                            "type": "string",
+                            "maxLength": 150,
+                        },
+                    },
+                },
+
+                "required": [
+                    "summary",
+                    "suggestions",
+                ],
+            },
+
+            # ------------------------------------------------
+            # VOICE
+            # ------------------------------------------------
+
+            "voice_feedback": {
+                "type": "object",
+                "additionalProperties": False,
+
+                "properties": {
+
+                    "summary": {
+                        "type": "string",
+                        "maxLength": 300,
+                        "description": (
+                            "Concise voice assessment based "
+                            "only on pitch, pitch variation, "
+                            "energy and energy variation."
+                        ),
+                    },
+
+                    "suggestions": {
+                        "type": "array",
+                        "maxItems": 3,
+                        "items": {
+                            "type": "string",
+                            "maxLength": 150,
+                        },
+                    },
+                },
+
+                "required": [
+                    "summary",
+                    "suggestions",
+                ],
+            },
+
+            # ------------------------------------------------
+            # VISUAL
+            # ------------------------------------------------
+
+            "visual_feedback": {
+                "type": "object",
+                "additionalProperties": False,
+
+                "properties": {
+
+                    "summary": {
+                        "type": "string",
+                        "maxLength": 300,
+                        "description": (
+                            "Concise visual assessment based "
+                            "only on face detection, eye "
+                            "openness, forward looking and "
+                            "engagement."
+                        ),
+                    },
+
+                    "suggestions": {
+                        "type": "array",
+                        "maxItems": 3,
+                        "items": {
+                            "type": "string",
+                            "maxLength": 150,
+                        },
+                    },
+                },
+
+                "required": [
+                    "summary",
+                    "suggestions",
+                ],
+            },
+
+            # ------------------------------------------------
+            # IMPROVEMENTS
+            # ------------------------------------------------
+
+            "improvement_suggestions": {
+                "type": "array",
+                "maxItems": 4,
+                "items": {
+                    "type": "string",
+                    "maxLength": 160,
+                },
+            },
+
+            # ------------------------------------------------
+            # COACHING
+            # ------------------------------------------------
+
+            "interview_coaching": {
+                "type": "array",
+                "maxItems": 3,
+                "items": {
+                    "type": "string",
+                    "maxLength": 160,
+                },
+            },
+
+            # ------------------------------------------------
+            # PRACTICE PLAN
+            # ------------------------------------------------
+
+            "practice_plan": {
+                "type": "array",
+                "maxItems": 4,
+                "items": {
+                    "type": "string",
+                    "maxLength": 160,
+                },
+            },
+
+            # ------------------------------------------------
+            # ENCOURAGEMENT
+            # ------------------------------------------------
+
+            "encouragement": {
+                "type": "string",
+                "maxLength": 250,
+            },
+        },
+
+        "required": [
+            "overall_assessment",
+            "strengths",
+            "weaknesses",
+            "speech_feedback",
+            "voice_feedback",
+            "visual_feedback",
+            "improvement_suggestions",
+            "interview_coaching",
+            "practice_plan",
+            "encouragement",
+        ],
+    }
+
+    # ========================================================
+    # CALL REKA
+    # ========================================================
 
     try:
 
         response = client.chat.completions.create(
+
             model="reka-flash-3",
 
             messages=[
                 {
                     "role": "system",
                     "content": (
-                        "You are SkillMirror AI. "
-                        "Return concise valid JSON only."
-                    ),
+    "You are SkillMirror AI, an expert interview coach.\n\n"
+
+    "Analyze ONLY the supplied interview data.\n\n"
+
+    "Return feedback using the provided function.\n\n"
+
+    "IMPORTANT RULES:\n"
+
+    "1. Be concise and practical.\n"
+
+    "2. Do not repeat information.\n"
+
+    "3. Never invent measurements, observations, or events.\n"
+
+    "4. Every strength, weakness, and suggestion must be "
+    "supported by a supplied metric or transcript.\n"
+
+    "5. Never assume that a metric is good or bad without "
+    "considering what that metric actually measures.\n"
+
+    "6. Do not label performance as 'below average', 'average', "
+    "or 'above average' unless the supplied data clearly "
+    "supports that comparison.\n"
+
+    "7. Do not infer nervousness, anxiety, confidence, stress, "
+    "facial expressions, body language, posture, gestures, "
+    "eye contact, vocal strain, or similar traits unless they "
+    "are explicitly measured in the supplied data.\n"
+
+    "8. If a metric is missing, unavailable, zero because no "
+    "measurement was recorded, or otherwise insufficient, "
+    "say that the metric is unavailable instead of guessing.\n"
+
+    "9. Speech feedback may use ONLY transcript, word count, "
+    "speaking duration, WPM, filler count, and pause metrics.\n"
+
+    "10. Voice feedback may use ONLY pitch, pitch variation, "
+    "energy, and energy variation.\n"
+
+    "11. Visual feedback may use ONLY face detection, eye "
+    "openness, forward-looking percentage, and engagement "
+    "when those measurements are actually available.\n"
+
+    "12. Do not claim that high pitch variation means nervousness "
+    "or that low energy means disengagement unless the supplied "
+    "data explicitly establishes that relationship.\n"
+
+    "13. Do not recommend doctors, therapists, speech-language "
+    "pathologists, or other medical professionals.\n"
+
+    "14. Give interview-specific recommendations that the "
+    "candidate can realistically practice.\n"
+
+    "15. Do not discuss unrelated topics.\n"
+
+    "16. Keep normal list items short.\n"
+
+    "17. Finish the function call completely."
+),
                 },
+
                 {
                     "role": "user",
-                    "content": prompt,
+                    "content": (
+                        "Analyze this interview performance "
+                        "and provide concise coaching feedback:\n\n"
+                        + interview_json
+                    ),
                 },
             ],
 
-            temperature=0.2,
+            temperature=0,
 
-            # Increased because Reka was previously stopping
-            # before producing the final JSON.
-            max_tokens=5000,
+            max_tokens=3000,
+
+            tools=[
+                {
+                    "type": "function",
+
+                    "function": {
+                        "name": "submit_interview_feedback",
+
+                        "description": (
+                            "Submit concise structured "
+                            "interview coaching feedback."
+                        ),
+
+                        "parameters": feedback_schema,
+                    },
+                },
+            ],
+
+            tool_choice={
+                "type": "function",
+                "function": {
+                    "name": "submit_interview_feedback",
+                },
+            },
         )
 
     except Exception as error:
 
-        print("\nREKA API ERROR:")
-        print(error)
+        print("\n")
+        print("=" * 70)
+        print("REKA API ERROR")
+        print("=" * 70)
+        print(str(error))
+        print("=" * 70)
+        print("\n")
 
-        return empty_feedback(
-            "AI coaching is temporarily unavailable."
+        raise RuntimeError(
+            f"Reka API request failed: {error}"
         )
 
     # ========================================================
-    # DEBUG RESPONSE
+    # VALIDATE RESPONSE
     # ========================================================
 
-    print("\n")
-    print("=" * 60)
-    print("REKA RESPONSE STATUS")
-    print("=" * 60)
+    if not response.choices:
 
-    choice = None
+        raise RuntimeError(
+            "Reka AI returned no choices."
+        )
 
-    if response.choices:
-        choice = response.choices[0]
-
-    if not choice:
-
-        print("No response choice returned.")
-
-        return empty_feedback()
-
-    print(
-        "Finish reason:",
-        choice.finish_reason
-    )
+    choice = response.choices[0]
 
     message = choice.message
 
-    content = message.content
-
     # ========================================================
-    # IMPORTANT:
-    # Reka may place useful content in reasoning_content
-    # while content is empty.
+    # DEBUG OUTPUT
     # ========================================================
-
-    if not content:
-
-        print("REKA CONTENT WAS EMPTY.")
-
-        if getattr(
-            message,
-            "reasoning_content",
-            None
-        ):
-
-            print(
-                "Reka used the token budget for reasoning "
-                "instead of returning the requested JSON."
-            )
-
-        return empty_feedback(
-            "Reka AI did not return a final coaching response."
-        )
 
     print("\n")
-    print("=" * 60)
-    print("RAW REKA CONTENT")
-    print("=" * 60)
+    print("=" * 70)
+    print("REKA AI STRUCTURED RESPONSE")
+    print("=" * 70)
 
-    print(content)
+    print(
+        "Finish reason:",
+        getattr(
+            choice,
+            "finish_reason",
+            None,
+        ),
+    )
+
+    tool_calls = getattr(
+        message,
+        "tool_calls",
+        None,
+    )
+
+    print(
+        "Tool calls:",
+        tool_calls,
+    )
+
+    print("=" * 70)
+    print("\n")
 
     # ========================================================
-    # PARSE JSON
+    # CHECK FOR TRUNCATION
     # ========================================================
 
-    parsed = clean_reka_response(content)
+    finish_reason = getattr(
+        choice,
+        "finish_reason",
+        None,
+    )
 
-    if parsed is None:
+    if finish_reason == "length":
+
+        raise RuntimeError(
+            "Reka AI truncated the structured function "
+            "response because it reached the token limit. "
+            "The model generated too much content."
+        )
+
+    # ========================================================
+    # GET FUNCTION CALL
+    # ========================================================
+
+    if not tool_calls:
+
+        # Helpful diagnostic if Reka returns text instead
+        content = getattr(
+            message,
+            "content",
+            None,
+        )
+
+        print(
+            "Unexpected text content:",
+            content,
+        )
+
+        raise RuntimeError(
+            "Reka did not return the expected "
+            "structured interview feedback function call."
+        )
+
+    # ========================================================
+    # USE FIRST FUNCTION CALL
+    # ========================================================
+
+    tool_call = tool_calls[0]
+
+    function_arguments = (
+        getattr(
+            tool_call.function,
+            "arguments",
+            None,
+        )
+    )
+
+    # ========================================================
+    # VALIDATE FUNCTION ARGUMENTS
+    # ========================================================
+
+    if not function_arguments:
+
+        raise RuntimeError(
+            "Reka returned an empty feedback function call."
+        )
+
+    # ========================================================
+    # DEBUG ARGUMENT LENGTH
+    # ========================================================
+
+    print(
+        "Structured argument length:",
+        len(function_arguments),
+        "characters",
+    )
+
+    # ========================================================
+    # PARSE FUNCTION ARGUMENTS
+    # ========================================================
+
+    try:
+
+        parsed = json.loads(
+            function_arguments
+        )
+
+    except json.JSONDecodeError as error:
 
         print("\n")
-        print("=" * 60)
-        print("REKA RETURNED INVALID JSON")
-        print("=" * 60)
+        print("=" * 70)
+        print("INVALID REKA FUNCTION JSON")
+        print("=" * 70)
+        print(function_arguments)
+        print("=" * 70)
+        print("\n")
 
-        return empty_feedback(
-            "Reka returned an invalid coaching response."
+        raise RuntimeError(
+            "Reka returned invalid structured feedback JSON: "
+            + str(error)
         )
 
     # ========================================================
-    # ENSURE REQUIRED STRUCTURE
+    # NORMALIZE
     # ========================================================
 
-    result = empty_feedback()
-
-    if isinstance(parsed, dict):
-
-        result.update(parsed)
+    feedback = normalize_feedback(
+        parsed
+    )
 
     # ========================================================
-    # GUARANTEE NESTED OBJECTS
+    # RETURN
     # ========================================================
 
-    if not isinstance(
-        result.get("speech_feedback"),
-        dict
-    ):
-
-        result["speech_feedback"] = {
-            "summary": "",
-            "suggestions": [],
-        }
-
-    if not isinstance(
-        result.get("voice_feedback"),
-        dict
-    ):
-
-        result["voice_feedback"] = {
-            "summary": "",
-            "suggestions": [],
-        }
-
-    if not isinstance(
-        result.get("visual_feedback"),
-        dict
-    ):
-
-        result["visual_feedback"] = {
-            "summary": "",
-            "suggestions": [],
-        }
-
-    # ========================================================
-    # GUARANTEE ARRAYS
-    # ========================================================
-
-    array_fields = [
-        "strengths",
-        "weaknesses",
-        "improvement_suggestions",
-        "interview_coaching",
-        "practice_plan",
-    ]
-
-    for field in array_fields:
-
-        if not isinstance(
-            result.get(field),
-            list
-        ):
-
-            result[field] = []
-
-    print("\n")
-    print("=" * 60)
-    print("REKA AI ANALYSIS SUCCESSFUL")
-    print("=" * 60)
-
-    return result
+    return feedback
